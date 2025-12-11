@@ -1,5 +1,94 @@
+/* Couleurs globales */
+body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: linear-gradient(to bottom, #4da3ff, #cbe8ff);
+    color: #063970;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+
+/* En-tête */
 .head {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+    background: rgba(255, 255, 255, 0.4);
+    padding: 15px 25px;
+    border-radius: 12px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.15);
 }
+
+.head img {
+    border-radius: 10px;
+}
+
+.head p {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #063970;
+    margin: 0;
+}
+
+/* Zone de saisie */
+[contenteditable="true"] {
+    width: 90%;
+    max-width: 500px;
+    height: 150px;
+    border: 2px solid #063970;
+    border-radius: 10px;
+    padding: 15px;
+    background: #ffffffaa;
+    backdrop-filter: blur(5px);
+    font-size: 1rem;
+    outline: none;
+    margin-top: 30px;
+}
+
+[contenteditable="true"]:focus {
+    border-color: #005bbb;
+    box-shadow: 0 0 6px #005bbb;
+}
+
+/* Bouton */
+button {
+    margin-top: 25px;
+    padding: 12px 25px;
+    background: #005bbb;
+    color: white;
+    border: none;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s ease;
+    box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+button:hover {
+    background: #003f87;
+}
+
+button:active {
+    transform: scale(0.97);
+}
+
+.ville-input {
+    width: 250px;
+    height: 25px;
+    border: 2px solid #063970;
+    border-radius: 6px;
+    padding: 5px 10px;
+    background: #ffffffaa;
+    backdrop-filter: blur(5px);
+    font-size: 1rem;
+    outline: none;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
