@@ -1,13 +1,29 @@
 /* Couleurs globales */
 body {
+    background-color: #4da3ff;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    min-height: 100vh;
     margin: 0;
     font-family: "Segoe UI", Arial, sans-serif;
-    color: #063970;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
+    display: flex;              /* active flex */
+    flex-direction: column;     /* empile verticalement */
+    align-items: center;        /* centre horizontalement */
+    justify-content: center;    /* centre verticalement */
+    gap: 20px;                  /* espace entre les éléments */
 }
+
+/* Conteneurs avec transparence pour lisibilité du texte */
+#weather-section, #favorites-section {
+    background: rgba(255,255,255,0.3);
+    border-radius: 12px;
+    padding: 15px;
+    margin: 10px auto;
+    max-width: 500px;
+}
+
 
 /* En-tête */
 .head {
@@ -56,7 +72,6 @@ body {
 
 /* Bouton */
 button {
-    margin-top: 25px;
     padding: 12px 25px;
     background: #005bbb;
     color: white;
@@ -79,7 +94,7 @@ button:active {
 
 .ville-input {
     width: 250px;
-    height: 25px;
+    height: 30px;
     border: 2px solid #063970;
     border-radius: 6px;
     padding: 5px 10px;

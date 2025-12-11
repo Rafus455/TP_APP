@@ -1,51 +1,111 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TP Application</title>
+    <title>TP Application Météo</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="head">
-        <img src="icons/icon-128.png" alt="Logo Météo" width="100" height="100"> 
+        <img src="icons/icon-128.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/4052/4052984.png'" alt="Logo Météo" width="80" height="80">
         <p>Centre météo</p>
     </div>
 
-<div contenteditable="true" class="ville-input" id="ville" placeholder="Tapez une ville"></div>
-<button id="recherche">Rechercher la ville</button>
+    <!-- J'ai remplacé le div contenteditable par un input, c'est bien plus stable -->
+    <input type="text" class="ville-input" id="ville" placeholder="Tapez une ville (ex: Lyon)">
+    <button id="recherche">Rechercher la ville</button>
 
-<script>
-const ACCESS_KEY = "4y-7VAiONHJruREqc7S7M39RGl83Vn4Mn3ilObGPcg0"; // Clé Unsplash
+    <!-- Zone de chargement et erreur -->
+    <p id="loading" class="hidden" style="color:white; font-weight:bold;">Chargement...</p>
+    <p id="error-message" class="hidden" style="background:red; color:white; padding:5px; border-radius:5px;"></p>
 
-// Fonction pour changer l'arrière-plan selon la ville
-function changerBackground() {
-    const ville = document.getElementById("ville").innerText.trim();
-    if(!ville) return;
+    <!-- Section Affichage Météo (Nécessaire pour app.js) -->
+    <div id="weather-section" class="hidden">
+        <h2 id="city-name" style="color:#063970; margin-bottom:0;">--</h2>
+        
+        <div style="display:flex; align-items:center; justify-content:center;">
+            <div id="weather-icon" style="font-size: 4rem;"></div>
+            <div style="font-size: 3rem; font-weight:bold; color:#063970;">
+                <span id="temperature">--</span>°C
+            </div>
+        </div>
 
-    fetch(`https://api.unsplash.com/photos/random?query=${ville}&client_id=${ACCESS_KEY}`)
-    .then(res => res.json())
-    .then(data => {
-        document.body.style.backgroundImage = `url(${data.urls.full})`;
-        document.body.style.backgroundSize = "cover";
-        document.body.style.backgroundPosition = "center";
-    })
-    .catch(err => console.log(err));
-}
+        <div style="display:flex; gap:15px; justify-content:center; background:rgba(255,255,255,0.5); padding:10px; border-radius:10px;">
+            <div>💨 Vent: <span id="wind">--</span></div>
+            <div>💧 Humidité: <span id="humidity">--</span></div>
+            <div>🌡️ Ressenti: <span id="feels-like">--</span></div>
+        </div>
 
-// Clique sur le bouton
-document.getElementById("recherche").addEventListener("click", changerBackground);
+        <!-- Prévisions horaires -->
+        <div id="hourly-list" style="margin-top:20px; display:flex; justify-content:space-between;"></div>
+        
+        <!-- Bouton de notification (optionnel selon ton app.js) -->
+        <button id="notify-btn" style="margin-top:15px; font-size:0.8rem; background:#063970;">🔔 Notifications</button>
+    </div>
 
-// Touche Entrée dans le contenteditable
-document.getElementById("ville").addEventListener("keydown", function(event) {
-    if(event.key === "Enter") {
-        event.preventDefault();   // empêche le retour à la ligne
-        changerBackground();      // déclenche le changement de fond
-    }
-});
-</script>
-    
-<script src="app.js"></script>
+    <!-- SCRIPT INTERNE : Gère uniquement le visuel (Background + Input) -->
+    <script>
+        const ACCESS_KEY = "4y-7VAiONHJruREqc7S7M39RGl83Vn4Mn3ilObGPcg0"; // Ta clé Unsplash
+
+        // Fonction pour changer le fond
+        async function updateBackground(ville) {
+            if (!ville) return;
+            
+            // Image par défaut si l'API plante
+            const defaultImage = "https://images.unsplash.com/photo-1592210454359-9043f067919b?auto=format&fit=crop&w=1600";
+
+            try {
+                const res = await fetch(`https://api.unsplash.com/photos/random?query=nature,${ville}&orientation=landscape&client_id=${ACCESS_KEY}`);
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.urls && data.urls.full) {
+                        applyBackground(data.urls.full);
+                    } else {
+                        applyBackground(defaultImage);
+                    }
+                } else {
+                    console.warn("Erreur Unsplash (Quota ou Reseau), image par défaut.");
+                    applyBackground(defaultImage);
+                }
+            } catch (err) {
+                console.log("Erreur JS background:", err);
+                applyBackground(defaultImage);
+            }
+        }
+
+        function applyBackground(url) {
+            document.body.style.backgroundImage = `url(${url})`;
+            document.body.style.transition = "background-image 0.5s ease-in-out";
+        }
+
+        // Récupération des éléments
+        const inputVille = document.getElementById("ville");
+        const btnRecherche = document.getElementById("recherche");
+
+        // 1. Clic sur le bouton
+        btnRecherche.addEventListener("click", function() {
+            const villeNom = inputVille.value.trim();
+            if (villeNom) {
+                updateBackground(villeNom);
+                // Note: app.js écoute aussi ce clic, donc il lancera la météo tout seul
+            }
+        });
+
+        // 2. Touche Entrée : On simule le clic
+        inputVille.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                btnRecherche.click(); // <--- C'est ici que la magie opère
+                inputVille.blur();    // Enlève le focus (ferme le clavier sur mobile)
+            }
+        });
+    </script>
+
+    <!-- SCRIPT LOGIQUE : Gère la météo -->
+    <script src="app.js"></script>
 </body>
-
 </html>
