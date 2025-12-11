@@ -12,19 +12,39 @@
         <p>Centre météo</p>
     </div>
 
-<div contenteditable="true" class="ville-input" id="ville"></div>
-<script>
-document.getElementById("ville").addEventListener("keydown", function(event) {
-    if (event.key === "Enter") {
-        event.preventDefault();   // empêche le retour à la ligne
+<div contenteditable="true" class="ville-input" id="ville" placeholder="Tapez une ville"></div>
+<button id="recherche">Rechercher la ville</button>
 
-        document.getElementById("recherche").click(); // simulate bouton
+<script>
+const ACCESS_KEY = "4y-7VAiONHJruREqc7S7M39RGl83Vn4Mn3ilObGPcg0"; // Clé Unsplash
+
+// Fonction pour changer l'arrière-plan selon la ville
+function changerBackground() {
+    const ville = document.getElementById("ville").innerText.trim();
+    if(!ville) return;
+
+    fetch(`https://api.unsplash.com/photos/random?query=${ville}&client_id=${ACCESS_KEY}`)
+    .then(res => res.json())
+    .then(data => {
+        document.body.style.backgroundImage = `url(${data.urls.full})`;
+        document.body.style.backgroundSize = "cover";
+        document.body.style.backgroundPosition = "center";
+    })
+    .catch(err => console.log(err));
+}
+
+// Clique sur le bouton
+document.getElementById("recherche").addEventListener("click", changerBackground);
+
+// Touche Entrée dans le contenteditable
+document.getElementById("ville").addEventListener("keydown", function(event) {
+    if(event.key === "Enter") {
+        event.preventDefault();   // empêche le retour à la ligne
+        changerBackground();      // déclenche le changement de fond
     }
 });
 </script>
-
-
-    <button id="recherche">Rechercher la ville</button>
+    
 <script src="app.js"></script>
 </body>
 

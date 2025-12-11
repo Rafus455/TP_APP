@@ -2,7 +2,6 @@
 body {
     margin: 0;
     font-family: "Segoe UI", Arial, sans-serif;
-    background: linear-gradient(to bottom, #4da3ff, #cbe8ff);
     color: #063970;
     display: flex;
     flex-direction: column;
