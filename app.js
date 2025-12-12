@@ -172,15 +172,35 @@ async function sendTestNotification() {
 }
 
 function sendWeatherNotification(city, message, type = 'info') {
-    // Fonction silencieuse pour l'usage réel (sans alertes)
-    if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+    // 1. Si pas de permission, on ne fait rien
+    if (Notification.permission !== 'granted') return;
+
+    const title = `Météo : ${city}`;
+    const options = {
+        body: message,
+        icon: 'icons/icon-192.png', // Vérifie que ce chemin est bon !
+        tag: type,
+        renotify: true, // Force la notif même si c'est la même qu'avant
+        vibrate: [200, 100, 200]
+    };
+
+    // 2. Tentative via Service Worker (Mieux pour Android/iOS)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.ready.then(registration => {
-            registration.showNotification(`Météo : ${city}`, {
-                body: message,
-                icon: 'icons/icon-192.png',
-                tag: type
-            });
+            registration.showNotification(title, options);
+        }).catch(err => {
+            // Si le SW échoue, on tente la méthode classique
+            console.log("SW erreur, passage en mode classique");
+            new Notification(title, options);
         });
+    } 
+    // 3. Tentative classique (Mieux pour PC)
+    else {
+        try {
+            new Notification(title, options);
+        } catch (e) {
+            console.error("Erreur notif PC:", e);
+        }
     }
 }
 // ===== Recherche et API Météo =====
