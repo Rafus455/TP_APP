@@ -172,37 +172,38 @@ async function sendTestNotification() {
 }
 
 function sendWeatherNotification(city, message, type = 'info') {
-    // 1. Si pas de permission, on ne fait rien
+    // Sécurité : Si pas de permission, on arrête tout
     if (Notification.permission !== 'granted') return;
 
     const title = `Météo : ${city}`;
+    
+    // Options de base (SANS image pour éviter les bugs sur PC)
     const options = {
         body: message,
-        icon: 'icons/icon-192.png', // Vérifie que ce chemin est bon !
-        tag: type,
-        renotify: true, // Force la notif même si c'est la même qu'avant
+        tag: type, // Empêche le spam (écrase la précédente notif du même type)
         vibrate: [200, 100, 200]
     };
 
-    // 2. Tentative via Service Worker (Mieux pour Android/iOS)
+    // --- CAS 1 : MOBILE / PWA (Via Service Worker) ---
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        // Sur mobile, l'icône est importante, on l'ajoute
+        options.icon = 'icons/icon-192.png'; 
+        
         navigator.serviceWorker.ready.then(registration => {
             registration.showNotification(title, options);
         }).catch(err => {
-            // Si le SW échoue, on tente la méthode classique
-            console.log("SW erreur, passage en mode classique");
-            new Notification(title, options);
+            // Si le Service Worker échoue, on tente le mode PC
+            console.log("Erreur SW, bascule en mode simple");
+            new Notification(title, options); // options n'a pas d'icône ici si on a échoué avant
         });
     } 
-    // 3. Tentative classique (Mieux pour PC)
+    // --- CAS 2 : PC (Mode Classique) ---
     else {
-        try {
-            new Notification(title, options);
-        } catch (e) {
-            console.error("Erreur notif PC:", e);
-        }
+        // On envoie SANS l'icône pour être sûr à 100% que ça s'affiche
+        new Notification(title, options);
     }
 }
+
 // ===== Recherche et API Météo =====
 async function handleSearch() {
     const query = elements.cityInput.value.trim();
