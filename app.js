@@ -65,22 +65,39 @@ function isNotificationSupported() {
 }
 
 function updateNotifyButton() {
-    if (!isNotificationSupported()) {
-        elements.notifyBtn.textContent = '🔔 Non disponible (iOS)';
-        elements.notifyBtn.disabled = true;
+    // 1. Détection spécifique pour iOS (iPhone/iPad)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    // 2. Vérifie si l'app est lancée depuis l'écran d'accueil (Mode App)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    // CAS 1 : C'est un iPhone et on est encore dans Safari (pas installé)
+    if (isIOS && !isStandalone) {
+        elements.notifyBtn.textContent = '📥 Installer pour activer';
+        elements.notifyBtn.disabled = false; // On active le bouton pour pouvoir cliquer
+        elements.notifyBtn.classList.remove('granted', 'denied');
+        
+        // Au clic, on explique comment faire
+        elements.notifyBtn.onclick = () => {
+            alert("⚠️ SUR IPHONE :\n\nLes notifications ne fonctionnent que si l'app est installée.\n\n1. Appuyez sur le bouton Partager (carré avec flèche) en bas de Safari.\n2. Cherchez 'Sur l'écran d'accueil'.\n3. Ajoutez-la et lancez l'app depuis votre écran d'accueil.");
+        };
         return;
     }
-    
+
+    // CAS 2 : Notifications vraiment pas supportées (vieux navigateur)
     if (!('Notification' in window)) {
-        elements.notifyBtn.textContent = '🔔 Notifications non supportées';
+        elements.notifyBtn.textContent = '🚫 Non supporté';
         elements.notifyBtn.disabled = true;
         return;
     }
 
+    // CAS 3 : Gestion normale (Android, PC, ou iPhone en mode App)
     const permission = Notification.permission;
     
+    // On remet l'écouteur standard (au cas où on l'aurait écrasé dans le Cas 1)
+    elements.notifyBtn.onclick = requestNotificationPermission;
+
     if (permission === 'granted') {
-        elements.notifyBtn.textContent = '✅ Notifications activées';
+        elements.notifyBtn.textContent = '✅ Notifications actives';
         elements.notifyBtn.classList.add('granted');
         elements.notifyBtn.classList.remove('denied');
     } else if (permission === 'denied') {

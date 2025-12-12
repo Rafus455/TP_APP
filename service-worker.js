@@ -1,9 +1,9 @@
 // ===== CONFIGURATION =====
 // Modifier ces valeurs pour votre application
-const CACHE_NAME = 'meteo-pwa-v2.1';
+const CACHE_NAME = 'meteo-pwa-v2.2';
 const ASSETS = [
-    '/',
-    '/index.html',
+    './',
+    './index.html',
     '/style.css',
     '/app.js',
     '/manifest.json',
