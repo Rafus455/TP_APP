@@ -1,241 +1,74 @@
-// ===== Configuration =====
+// ===== CONFIGURATION =====
 const CONFIG = {
     GEOCODING_API: 'https://geocoding-api.open-meteo.com/v1/search',
     WEATHER_API: 'https://api.open-meteo.com/v1/forecast',
-    STORAGE_KEY_FAVORITES: 'meteo-pwa-favorites',
-    STORAGE_KEY_THEME: 'meteo-pwa-theme',
-    RAIN_CODES: [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99],
-    TEMP_THRESHOLD: 10 // Température seuil pour notification
+    // Codes météo pour la pluie (Bruine, Pluie, Averses, Orage)
+    RAIN_CODES: [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99],
+    // Seuil de température
+    TEMP_THRESHOLD: 10 
 };
 
-// ===== Éléments DOM =====
+// ===== ÉLÉMENTS DOM =====
 const elements = {
     cityInput: document.getElementById('ville'),
     searchBtn: document.getElementById('recherche'),
     notifyBtn: document.getElementById('notify-btn'),
-    themeToggle: document.getElementById('theme-toggle'),
     weatherSection: document.getElementById('weather-section'),
-    favoritesSection: document.getElementById('favorites-section'),
-    favoritesList: document.getElementById('favorites-list'),
-    favoriteBtn: document.getElementById('favorite-btn'),
+    hourlyList: document.getElementById('hourly-list'),
+    loading: document.getElementById('loading'),
+    errorMessage: document.getElementById('error-message'),
     cityName: document.getElementById('city-name'),
     temperature: document.getElementById('temperature'),
     weatherIcon: document.getElementById('weather-icon'),
     wind: document.getElementById('wind'),
     humidity: document.getElementById('humidity'),
-    feelsLike: document.getElementById('feels-like'),
-    hourlyList: document.getElementById('hourly-list'),
-    loading: document.getElementById('loading'),
-    errorMessage: document.getElementById('error-message')
+    feelsLike: document.getElementById('feels-like')
 };
 
-// ===== État de l'application =====
-let currentCity = null;
-
-// ===== Initialisation =====
+// ===== INITIALISATION =====
 document.addEventListener('DOMContentLoaded', () => {
-    
+    // 1. Écouteur sur le bouton de recherche
     if (elements.searchBtn) {
         elements.searchBtn.addEventListener('click', handleSearch);
     }
 
-     if (elements.notifyBtn) {
-        elements.notifyBtn.addEventListener('click', requestNotificationPermission);
+    // 2. Gestion du bouton Notifications
+    if (elements.notifyBtn) {
+        updateNotifyButton(); // Vérifie l'état au démarrage
     }
 
-    updateNotifyButton();
-    registerServiceWorker();
+    // 3. Enregistrement du Service Worker (Indispensable pour iOS/Android)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./service-worker.js')
+            .then(() => console.log('✅ Service Worker enregistré'))
+            .catch(err => console.error('❌ Erreur Service Worker', err));
+    }
 });
 
-// ===== Service Worker =====
-async function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        try {
-            const registration = await navigator.serviceWorker.register('./service-worker.js');
-            console.log('✅ Service Worker enregistré:', registration.scope);
-        } catch (error) {
-            console.error('❌ Erreur Service Worker:', error);
-        }
-    }
-}
+// ===== FONCTIONS PRINCIPALES MÉTÉO =====
 
-// ===== Notifications =====
-function isNotificationSupported() {
-    return 'Notification' in window && typeof Notification !== 'undefined';
-}
-
-function updateNotifyButton() {
-    // 1. Détection iOS / Standalone
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-
-    // 2. Cas iOS non installé
-    if (isIOS && !isStandalone) {
-        elements.notifyBtn.textContent = '📥 Installer pour activer';
-        elements.notifyBtn.onclick = () => {
-             alert("Installez l'application sur l'écran d'accueil pour activer les notifications.");
-        };
-        return;
-    }
-
-    // 3. Cas non supporté
-    if (!('Notification' in window)) {
-        elements.notifyBtn.textContent = '🚫 Non supporté';
-        elements.notifyBtn.disabled = true;
-        return;
-    }
-
-    // 4. Gestion des états de permission
-    const permission = Notification.permission;
-
-    if (permission === 'granted') {
-        // C'EST ICI QUE CA BLOQUAIT :
-        elements.notifyBtn.textContent = '✅ Test Notification'; // J'ai changé le texte pour que ce soit clair
-        elements.notifyBtn.classList.add('granted');
-        elements.notifyBtn.classList.remove('denied');
-        
-        // IMPORTANT : On attache la fonction de test au clic
-        elements.notifyBtn.onclick = sendTestNotification; 
-        
-    } else if (permission === 'denied') {
-        elements.notifyBtn.textContent = '❌ Notifications bloquées';
-        elements.notifyBtn.classList.add('denied');
-        elements.notifyBtn.classList.remove('granted');
-        elements.notifyBtn.onclick = () => alert("Allez dans les Réglages de l'iPhone pour réactiver les notifications.");
-    } else {
-        elements.notifyBtn.textContent = '🔔 Activer les notifications';
-        elements.notifyBtn.classList.remove('granted', 'denied');
-        elements.notifyBtn.onclick = requestNotificationPermission;
-    }
-}
-
-// ===== Notifications (Version corrigée pour iOS) =====
-// ===== GESTION DES NOTIFICATIONS BLINDÉE POUR IOS =====
-
-async function requestNotificationPermission() {
-    // 1. Vérification de l'état actuel
-    if (!('Notification' in window)) {
-        alert("Ce téléphone ne supporte pas les notifications.");
-        return;
-    }
-
-    // Si c'est déjà accordé dans les réglages mais que le bouton ne le sait pas encore
-    if (Notification.permission === 'granted') {
-        // On tente directement d'envoyer la notif de test
-        sendTestNotification();
-        updateNotifyButton();
-        return;
-    }
-
-    // 2. Si ce n'est pas encore fait, on demande
-    try {
-        const permission = await Notification.requestPermission();
-        
-        if (permission === 'granted') {
-            updateNotifyButton();
-            sendTestNotification();
-        } else {
-            // C'est ici que tu avais le message "Accès refusé"
-            // Si l'utilisateur refuse ou si iOS bug
-            alert("Permission refusée par le système.\n\nAllez dans Réglages > Météo PWA > Notifications pour vérifier.");
-        }
-    } catch (error) {
-        alert("Erreur lors de la demande : " + error.message);
-    }
-}
-
-async function sendTestNotification() {
-    // Petit message pour confirmer que le clic est bien pris en compte
-    console.log("Tentative d'envoi...");
-
-    if (!('serviceWorker' in navigator)) {
-        alert("Erreur : Le navigateur ne supporte pas les Service Workers.");
-        return;
-    }
-
-    try {
-        // On attend que le SW soit prêt (c'est souvent là que ça charge sur iPhone)
-        const registration = await navigator.serviceWorker.ready;
-        
-        // Envoi effectif
-        await registration.showNotification('Météo PWA', {
-            body: 'Si tu lis ça, tout fonctionne ! 🌤️',
-            icon: 'icons/icon-192.png',
-            vibrate: [200],
-            tag: 'test-v1' // Tag unique pour éviter les doublons
-        });
-
-    } catch (error) {
-        // Si ça échoue, cette alerte te donnera la raison exacte
-        alert("Échec de la notification : " + error.message);
-    }
-}
-
-function sendWeatherNotification(city, message, type = 'info') {
-    // Sécurité : Si pas de permission, on arrête tout
-    if (Notification.permission !== 'granted') return;
-
-    const title = `Météo : ${city}`;
-    
-    // Options de base (SANS image pour éviter les bugs sur PC)
-    const options = {
-        body: message,
-        tag: type, // Empêche le spam (écrase la précédente notif du même type)
-        vibrate: [200, 100, 200]
-    };
-
-    // --- CAS 1 : MOBILE / PWA (Via Service Worker) ---
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        // Sur mobile, l'icône est importante, on l'ajoute
-        options.icon = 'icons/icon-192.png'; 
-        
-        navigator.serviceWorker.ready.then(registration => {
-            registration.showNotification(title, options);
-        }).catch(err => {
-            // Si le Service Worker échoue, on tente le mode PC
-            console.log("Erreur SW, bascule en mode simple");
-            new Notification(title, options); // options n'a pas d'icône ici si on a échoué avant
-        });
-    } 
-    // --- CAS 2 : PC (Mode Classique) ---
-    else {
-        // On envoie SANS l'icône pour être sûr à 100% que ça s'affiche
-        new Notification(title, options);
-    }
-}
-
-// ===== Recherche et API Météo =====
 async function handleSearch() {
     const query = elements.cityInput.value.trim();
-    
-    if (!query) {
-        showError('Veuillez entrer un nom de ville.');
-        return;
-    }
+    if (!query) return;
 
     showLoading();
     hideError();
 
     try {
-        // 1. Géocodage : trouver les coordonnées de la ville
-        const geoResponse = await fetch(
-            `${CONFIG.GEOCODING_API}?name=${encodeURIComponent(query)}&count=1&language=fr&format=json`
-        );
-        
-        if (!geoResponse.ok) throw new Error('Erreur de géocodage');
-        
+        // A. Géocodage
+        const geoResponse = await fetch(`${CONFIG.GEOCODING_API}?name=${encodeURIComponent(query)}&count=1&language=fr&format=json`);
         const geoData = await geoResponse.json();
         
         if (!geoData.results || geoData.results.length === 0) {
-            throw new Error(`Ville "${query}" non trouvée. Vérifiez l'orthographe.`);
+            throw new Error(`Ville "${query}" introuvable.`);
         }
 
         const location = geoData.results[0];
-        const cityName = `${location.name}${location.admin1 ? ', ' + location.admin1 : ''}, ${location.country}`;
-        
-        // 2. Récupérer la météo
-        await fetchWeather(location.latitude, location.longitude, cityName);
-        
+        const fullCityName = `${location.name}, ${location.country}`;
+
+        // B. Météo
+        await fetchWeather(location.latitude, location.longitude, fullCityName);
+
     } catch (error) {
         hideLoading();
         showError(error.message);
@@ -243,34 +76,21 @@ async function handleSearch() {
 }
 
 async function fetchWeather(lat, lon, cityName) {
-    showLoading();
-    hideError();
-
     try {
-        const weatherResponse = await fetch(
-            `${CONFIG.WEATHER_API}?latitude=${lat}&longitude=${lon}` +
-            `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m` +
-            `&hourly=temperature_2m,weather_code,precipitation_probability` +
-            `&timezone=auto&forecast_days=1`
-            
-        );
-
-        if (!weatherResponse.ok) throw new Error('Erreur météo');
-
-        const weatherData = await weatherResponse.json();
+        const url = `${CONFIG.WEATHER_API}?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&timezone=auto&forecast_days=1`;
         
-        currentCity = { name: cityName, lat, lon };
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Erreur récupération météo');
         
-        displayWeather(weatherData, cityName);
-        checkWeatherAlerts(weatherData, cityName);
+        const data = await res.json();
         
-        // --- C'EST ICI QU'ON APPELLE LA VÉRIFICATION ---
-        console.log("Analyse des alertes...");
-        checkWeatherAlerts(weatherData, cityName);
-        // -----------------------------------------------
+        // 1. Affichage
+        displayWeather(data, cityName);
+        
+        // 2. Analyse pour les notifications (Pluie / Température)
+        checkWeatherAlerts(data, cityName);
         
         hideLoading();
-        
     } catch (error) {
         hideLoading();
         showError(error.message);
@@ -279,9 +99,7 @@ async function fetchWeather(lat, lon, cityName) {
 
 function displayWeather(data, cityName) {
     const current = data.current;
-    const hourly = data.hourly;
-
-    // Données actuelles
+    
     elements.cityName.textContent = cityName;
     elements.temperature.textContent = Math.round(current.temperature_2m);
     elements.weatherIcon.textContent = getWeatherEmoji(current.weather_code);
@@ -289,125 +107,153 @@ function displayWeather(data, cityName) {
     elements.humidity.textContent = `${current.relative_humidity_2m} %`;
     elements.feelsLike.textContent = `${Math.round(current.apparent_temperature)}°C`;
 
-    // Prévisions horaires (4 prochaines heures)
+    // Affichage horaire (4 prochaines heures)
+    const hourlyHTML = [];
     const currentHour = new Date().getHours();
-    const hourlyItems = [];
     
-    for (let i = 0; i < 4; i++) {
-        const hourIndex = currentHour + i + 1;
-        if (hourIndex < hourly.time.length) {
-            const time = new Date(hourly.time[hourIndex]);
-            const temp = hourly.temperature_2m[hourIndex];
-            const code = hourly.weather_code[hourIndex];
-            const isRain = CONFIG.RAIN_CODES.includes(code);
-            const isHighTemp = temp > CONFIG.TEMP_THRESHOLD;
-            
-            let alertClass = '';
-            if (isRain) alertClass = 'rain-alert';
-            else if (isHighTemp) alertClass = 'temp-alert';
-
-            hourlyItems.push(`
-                <div class="hourly-item ${alertClass}">
-                    <div class="hourly-time">${time.getHours()}h</div>
-                    <div class="hourly-icon">${getWeatherEmoji(code)}</div>
-                    <div class="hourly-temp">${Math.round(temp)}°C</div>
+    for(let i = 1; i <= 4; i++) {
+        const idx = currentHour + i;
+        if (idx < data.hourly.time.length) {
+            hourlyHTML.push(`
+                <div class="hourly-item">
+                    <span>${idx}h</span>
+                    <span style="font-size:1.5rem">${getWeatherEmoji(data.hourly.weather_code[idx])}</span>
+                    <span>${Math.round(data.hourly.temperature_2m[idx])}°</span>
                 </div>
             `);
         }
     }
-
-    elements.hourlyList.innerHTML = hourlyItems.join('');
+    elements.hourlyList.innerHTML = hourlyHTML.join('');
     elements.weatherSection.classList.remove('hidden');
 }
 
+// ===== LOGIQUE DES NOTIFICATIONS (Le Cœur du sujet) =====
+
 function checkWeatherAlerts(data, cityName) {
-    // 1. On récupère les prévisions horaires
     const hourly = data.hourly;
-    const currentHour = new Date().getHours(); // Heure actuelle (ex: 14)
+    const currentHour = new Date().getHours();
     
-    // Drapeaux pour éviter les doublons (une seule notif par type d'alerte)
     let rainAlertSent = false;
     let tempAlertSent = false;
 
-    // 2. On boucle sur les 4 prochaines heures
+    // Analyse des 4 prochaines heures
     for (let i = 1; i <= 4; i++) {
-        const targetIndex = currentHour + i;
+        const index = currentHour + i;
+        // Sécurité pour ne pas sortir du tableau
+        if (index >= hourly.time.length) break;
 
-        // Sécurité : on vérifie qu'on ne sort pas du tableau des données
-        if (targetIndex >= hourly.time.length) break;
+        const code = hourly.weather_code[index];
+        const temp = hourly.temperature_2m[index];
 
-        const code = hourly.weather_code[targetIndex];
-        const temp = hourly.temperature_2m[targetIndex];
-
-        // --- CONDITION 1 : PLUIE ---
-        // Si on n'a pas encore envoyé d'alerte pluie ET que le code météo est dans notre liste
+        // ALERTE PLUIE
         if (!rainAlertSent && CONFIG.RAIN_CODES.includes(code)) {
-            sendWeatherNotification(
-                cityName, 
-                `☔ Attention : Pluie prévue dans ${i} heure(s) !`
-            );
-            rainAlertSent = true; // On note qu'on a déjà prévenu
+            sendWeatherNotification(cityName, `☔ Attention : Pluie prévue dans ${i}h !`, 'rain');
+            rainAlertSent = true;
         }
 
-        // --- CONDITION 2 : TEMPÉRATURE > 10°C ---
-        // Si on n'a pas encore envoyé d'alerte température ET qu'il fait plus de 10
+        // ALERTE CHALEUR (> 10°C)
         if (!tempAlertSent && temp > CONFIG.TEMP_THRESHOLD) {
-            sendWeatherNotification(
-                cityName, 
-                `🌡️ Il va faire doux : ${Math.round(temp)}°C prévus dans ${i} heure(s).`
-            );
-            tempAlertSent = true; // On note qu'on a déjà prévenu
+            sendWeatherNotification(cityName, `🌡️ Il va faire doux : ${Math.round(temp)}°C dans ${i}h.`, 'temp');
+            tempAlertSent = true;
         }
     }
 }
 
-// ===== Utilitaires =====
-function getWeatherEmoji(code) {
-    const weatherEmojis = {
-        0: '☀️',      // Clear sky
-        1: '🌤️',     // Mainly clear
-        2: '⛅',      // Partly cloudy
-        3: '☁️',      // Overcast
-        45: '🌫️',    // Fog
-        48: '🌫️',    // Depositing rime fog
-        51: '🌦️',    // Light drizzle
-        53: '🌦️',    // Moderate drizzle
-        55: '🌧️',    // Dense drizzle
-        56: '🌨️',    // Light freezing drizzle
-        57: '🌨️',    // Dense freezing drizzle
-        61: '🌧️',    // Slight rain
-        63: '🌧️',    // Moderate rain
-        65: '🌧️',    // Heavy rain
-        66: '🌨️',    // Light freezing rain
-        67: '🌨️',    // Heavy freezing rain
-        71: '🌨️',    // Slight snow
-        73: '🌨️',    // Moderate snow
-        75: '❄️',     // Heavy snow
-        77: '🌨️',    // Snow grains
-        80: '🌦️',    // Slight rain showers
-        81: '🌧️',    // Moderate rain showers
-        82: '⛈️',     // Violent rain showers
-        85: '🌨️',    // Slight snow showers
-        86: '❄️',     // Heavy snow showers
-        95: '⛈️',     // Thunderstorm
-        96: '⛈️',     // Thunderstorm with slight hail
-        99: '⛈️'      // Thunderstorm with heavy hail
+function sendWeatherNotification(city, message, tag = 'info') {
+    // Si pas de permission, on arrête
+    if (Notification.permission !== 'granted') return;
+
+    const title = `Météo : ${city}`;
+    const options = {
+        body: message,
+        tag: tag,
+        vibrate: [200, 100, 200]
     };
-    
-    return weatherEmojis[code] || '🌤️';
+
+    // Stratégie Hybride : 
+    // Service Worker pour Mobile (Android/iOS) avec Icône
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        options.icon = 'icons/icon-192.png'; 
+        navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, options);
+        });
+    } 
+    // API Classique pour PC (Sans icône pour éviter bugs Windows)
+    else {
+        new Notification(title, options);
+    }
+}
+
+// ===== GESTION DU BOUTON ET PERMISSIONS =====
+
+function updateNotifyButton() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+
+    // Cas iOS non installé
+    if (isIOS && !isStandalone) {
+        elements.notifyBtn.textContent = '📥 Installer pour activer notifs';
+        elements.notifyBtn.onclick = () => alert("Installez l'app sur l'écran d'accueil (Partager > Sur l'écran d'accueil) pour activer les notifications.");
+        return;
+    }
+
+    if (!('Notification' in window)) {
+        elements.notifyBtn.textContent = '🚫 Notifs non supportées';
+        return;
+    }
+
+    if (Notification.permission === 'granted') {
+        elements.notifyBtn.textContent = '✅ Notifications actives (Test)';
+        elements.notifyBtn.classList.add('granted');
+        // Au clic, on lance un test manuel
+        elements.notifyBtn.onclick = () => sendWeatherNotification("Test", "Ceci est un test manuel !");
+    } else {
+        elements.notifyBtn.textContent = '🔔 Activer les notifications';
+        elements.notifyBtn.onclick = requestPermission;
+    }
+}
+
+async function requestPermission() {
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            updateNotifyButton();
+            sendWeatherNotification("Succès", "Notifications activées avec succès !");
+        } else {
+            alert("Permission refusée. Vérifiez les réglages de votre appareil.");
+        }
+    } catch (e) {
+        alert("Erreur : " + e.message);
+    }
+}
+
+// ===== UTILITAIRES =====
+
+function getWeatherEmoji(code) {
+    const emojis = {
+        0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️', 
+        45: '🌫️', 48: '🌫️',
+        51: '🌦️', 53: '🌦️', 55: '🌧️', 
+        61: '🌧️', 63: '🌧️', 65: '🌧️',
+        71: '🌨️', 73: '🌨️', 75: '❄️',
+        80: '🌦️', 81: '🌧️', 82: '⛈️',
+        95: '⛈️', 96: '⛈️', 99: '⛈️'
+    };
+    return emojis[code] || '❓';
 }
 
 function showLoading() {
     elements.loading.classList.remove('hidden');
     elements.weatherSection.classList.add('hidden');
+    elements.errorMessage.classList.add('hidden');
 }
 
 function hideLoading() {
     elements.loading.classList.add('hidden');
 }
 
-function showError(message) {
-    elements.errorMessage.textContent = message;
+function showError(msg) {
+    elements.errorMessage.textContent = msg;
     elements.errorMessage.classList.remove('hidden');
 }
 
