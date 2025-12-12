@@ -1,61 +1,78 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TP Application Météo</title>
+    <title>Centre Météo</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
 </head>
-
 <body>
-    <div class="head">
-        <img src="icons/icon-128.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/4052/4052984.png'" alt="Logo Météo" width="80" height="80">
-        <p>Centre météo</p>
-    </div>
-
-    <!-- J'ai remplacé le div contenteditable par un input, c'est bien plus stable -->
-    <input type="text" class="ville-input" id="ville" placeholder="Tapez une ville (ex: Lyon)">
-    <button id="recherche">Rechercher la ville</button>
-
-    <!-- Zone de chargement et erreur -->
-    <p id="loading" class="hidden" style="color:white; font-weight:bold;">Chargement...</p>
-    <p id="error-message" class="hidden" style="background:red; color:white; padding:5px; border-radius:5px;"></p>
-
-    <!-- Section Affichage Météo (Nécessaire pour app.js) -->
-    <div id="weather-section" class="hidden">
-        <h2 id="city-name" style="color:#063970; margin-bottom:0;">--</h2>
-        
-        <div style="display:flex; align-items:center; justify-content:center;">
-            <div id="weather-icon" style="font-size: 4rem;"></div>
-            <div style="font-size: 3rem; font-weight:bold; color:#063970;">
-                <span id="temperature">--</span>°C
+    <div class="container">
+        <!-- En-tête avec logo -->
+        <header class="header">
+            <div class="logo-container">
+                <div class="logo">☀️</div>
+                <h1 class="logo-text">Centre Météo</h1>
             </div>
+        </header>
+
+        <!-- Zone de recherche -->
+        <div class="search-container">
+            <input type="text" class="ville-input" id="ville" placeholder="Rechercher une ville...">
+            <button id="recherche">🔍 Rechercher</button>
         </div>
 
-        <div style="display:flex; gap:15px; justify-content:center; background:rgba(255,255,255,0.5); padding:10px; border-radius:10px;">
-            <div>💨 Vent: <span id="wind">--</span></div>
-            <div>💧 Humidité: <span id="humidity">--</span></div>
-            <div>🌡️ Ressenti: <span id="feels-like">--</span></div>
-        </div>
+        <!-- Messages de chargement et erreur -->
+        <p id="loading" class="hidden">⏳ Chargement...</p>
+        <p id="error-message" class="hidden"></p>
 
-        <!-- Prévisions horaires -->
-        <div id="hourly-list" style="margin-top:20px; display:flex; justify-content:space-between;"></div>
-        
-        <!-- Bouton de notification (optionnel selon ton app.js) -->
-        <button id="notify-btn" style="margin-top:15px; font-size:0.8rem; background:#063970;">🔔 Notifications</button>
+        <!-- Section météo principale -->
+        <div id="weather-section" class="hidden">
+            <h2 id="city-name">--</h2>
+            
+            <div class="temp-container">
+                <div id="weather-icon"></div>
+                <div class="temperature">
+                    <span id="temperature">--</span>°C
+                </div>
+            </div>
+
+            <div class="weather-details">
+                <div class="detail-item">
+                    <div class="detail-icon">💨</div>
+                    <div class="detail-label">Vent</div>
+                    <div class="detail-value" id="wind">--</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-icon">💧</div>
+                    <div class="detail-label">Humidité</div>
+                    <div class="detail-value" id="humidity">--</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-icon">🌡️</div>
+                    <div class="detail-label">Ressenti</div>
+                    <div class="detail-value" id="feels-like">--</div>
+                </div>
+            </div>
+
+            <!-- Prévisions horaires -->
+            <div id="hourly-list"></div>
+            
+            <!-- Bouton notifications -->
+            <button id="notify-btn" class="notify-button">
+                🔔 Activer les notifications
+            </button>
+        </div>
     </div>
 
-    <!-- SCRIPT INTERNE : Gère uniquement le visuel (Background + Input) -->
+    <!-- Script pour le background dynamique -->
     <script>
-        const ACCESS_KEY = "4y-7VAiONHJruREqc7S7M39RGl83Vn4Mn3ilObGPcg0"; // Ta clé Unsplash
+        const ACCESS_KEY = "4y-7VAiONHJruREqc7S7M39RGl83Vn4Mn3ilObGPcg0";
 
-        // Fonction pour changer le fond
         async function updateBackground(ville) {
             if (!ville) return;
             
-            // Image par défaut si l'API plante
             const defaultImage = "https://images.unsplash.com/photo-1592210454359-9043f067919b?auto=format&fit=crop&w=1600";
 
             try {
@@ -69,7 +86,7 @@
                         applyBackground(defaultImage);
                     }
                 } else {
-                    console.warn("Erreur Unsplash (Quota ou Reseau), image par défaut.");
+                    console.warn("Erreur Unsplash, image par défaut.");
                     applyBackground(defaultImage);
                 }
             } catch (err) {
@@ -79,34 +96,30 @@
         }
 
         function applyBackground(url) {
-            document.body.style.backgroundImage = `url(${url})`;
-            document.body.style.transition = "background-image 0.5s ease-in-out";
+            document.body.style.setProperty('--bg-image', `url(${url})`);
+            document.body.classList.add('has-background');
         }
 
-        // Récupération des éléments
         const inputVille = document.getElementById("ville");
         const btnRecherche = document.getElementById("recherche");
 
-        // 1. Clic sur le bouton
         btnRecherche.addEventListener("click", function() {
             const villeNom = inputVille.value.trim();
             if (villeNom) {
                 updateBackground(villeNom);
-                // Note: app.js écoute aussi ce clic, donc il lancera la météo tout seul
             }
         });
 
-        // 2. Touche Entrée : On simule le clic
         inputVille.addEventListener("keydown", function (event) {
             if (event.key === "Enter") {
                 event.preventDefault();
-                btnRecherche.click(); // <--- C'est ici que la magie opère
-                inputVille.blur();    // Enlève le focus (ferme le clavier sur mobile)
+                btnRecherche.click();
+                inputVille.blur();
             }
         });
     </script>
 
-    <!-- SCRIPT LOGIQUE : Gère la météo -->
+    <!-- Script logique météo -->
     <script src="app.js"></script>
 </body>
 </html>
