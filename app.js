@@ -252,6 +252,7 @@ async function fetchWeather(lat, lon, cityName) {
             `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m` +
             `&hourly=temperature_2m,weather_code,precipitation_probability` +
             `&timezone=auto&forecast_days=1`
+            
         );
 
         if (!weatherResponse.ok) throw new Error('Erreur météo');
@@ -261,6 +262,7 @@ async function fetchWeather(lat, lon, cityName) {
         currentCity = { name: cityName, lat, lon };
         
         displayWeather(weatherData, cityName);
+        checkWeatherAlerts(weatherData, cityName);
         
         // --- C'EST ICI QU'ON APPELLE LA VÉRIFICATION ---
         console.log("Analyse des alertes...");
@@ -319,50 +321,43 @@ function displayWeather(data, cityName) {
 }
 
 function checkWeatherAlerts(data, cityName) {
+    // 1. On récupère les prévisions horaires
     const hourly = data.hourly;
-    const currentHour = new Date().getHours();
+    const currentHour = new Date().getHours(); // Heure actuelle (ex: 14)
     
-    let rainAlert = false;
-    let tempAlert = false;
-    let rainHour = null;
-    let highTemp = null;
+    // Drapeaux pour éviter les doublons (une seule notif par type d'alerte)
+    let rainAlertSent = false;
+    let tempAlertSent = false;
 
-    // Vérifier les 4 prochaines heures
+    // 2. On boucle sur les 4 prochaines heures
     for (let i = 1; i <= 4; i++) {
-        const hourIndex = currentHour + i;
-        if (hourIndex < hourly.time.length) {
-            const code = hourly.weather_code[hourIndex];
-            const temp = hourly.temperature_2m[hourIndex];
-            
-            // Vérifier la pluie
-            if (!rainAlert && CONFIG.RAIN_CODES.includes(code)) {
-                rainAlert = true;
-                rainHour = i;
-            }
-            
-            // Vérifier la température > 10°C
-            if (!tempAlert && temp > CONFIG.TEMP_THRESHOLD) {
-                tempAlert = true;
-                highTemp = Math.round(temp);
-            }
+        const targetIndex = currentHour + i;
+
+        // Sécurité : on vérifie qu'on ne sort pas du tableau des données
+        if (targetIndex >= hourly.time.length) break;
+
+        const code = hourly.weather_code[targetIndex];
+        const temp = hourly.temperature_2m[targetIndex];
+
+        // --- CONDITION 1 : PLUIE ---
+        // Si on n'a pas encore envoyé d'alerte pluie ET que le code météo est dans notre liste
+        if (!rainAlertSent && CONFIG.RAIN_CODES.includes(code)) {
+            sendWeatherNotification(
+                cityName, 
+                `☔ Attention : Pluie prévue dans ${i} heure(s) !`
+            );
+            rainAlertSent = true; // On note qu'on a déjà prévenu
         }
-    }
 
-    // Envoyer les notifications
-    if (rainAlert) {
-        sendWeatherNotification(
-            cityName,
-            `🌧️ Pluie prévue dans ${rainHour} heure${rainHour > 1 ? 's' : ''} !`,
-            'rain'
-        );
-    }
-
-    if (tempAlert) {
-        sendWeatherNotification(
-            cityName,
-            `🌡️ Température supérieure à ${CONFIG.TEMP_THRESHOLD}°C prévue (${highTemp}°C)`,
-            'temp'
-        );
+        // --- CONDITION 2 : TEMPÉRATURE > 10°C ---
+        // Si on n'a pas encore envoyé d'alerte température ET qu'il fait plus de 10
+        if (!tempAlertSent && temp > CONFIG.TEMP_THRESHOLD) {
+            sendWeatherNotification(
+                cityName, 
+                `🌡️ Il va faire doux : ${Math.round(temp)}°C prévus dans ${i} heure(s).`
+            );
+            tempAlertSent = true; // On note qu'on a déjà prévenu
+        }
     }
 }
 
