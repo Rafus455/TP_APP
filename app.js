@@ -110,56 +110,60 @@ function updateNotifyButton() {
     }
 }
 
+// ===== Notifications (Version corrigée pour iOS) =====
 async function requestNotificationPermission() {
     if (!('Notification' in window)) {
-        showError('Les notifications ne sont pas supportées par votre navigateur.');
-        return;
-    }
-
-    if (Notification.permission === 'denied') {
-        showError('Les notifications sont bloquées. Veuillez les réactiver dans les paramètres de votre navigateur.');
+        alert("Votre téléphone ne gère pas les notifications web.");
         return;
     }
 
     try {
+        // Demande la permission
         const permission = await Notification.requestPermission();
-        updateNotifyButton();
-        
+        updateNotifyButton(); // Met à jour le texte du bouton
+
         if (permission === 'granted') {
-            // Notification de test
-            new Notification('MétéoPWA', {
-                body: 'Les notifications sont maintenant activées ! 🎉',
-                icon: 'icons/icon-192.png',
-                tag: 'welcome'
-            });
+            // FORCE une notification de test immédiate
+            // C'est vital pour vérifier que ça marche
+            sendNotificationToIOS("Test réussi !", "Les notifications fonctionnent sur ton iPhone 🎉");
+        } else {
+            alert("Permissions refusées. Va dans Réglages > Météo PWA pour les activer.");
         }
     } catch (error) {
-        console.error('Erreur lors de la demande de permission:', error);
+        console.error('Erreur permission:', error);
+        alert("Erreur technique : " + error.message);
     }
 }
 
-function sendWeatherNotification(city, message, type = 'info') {
-    if (!('Notification' in window)) return;
-
-    if (Notification.permission === 'granted') {
-        
-        const options = {
-            body: message,
-            icon: 'icons/icon-128.png',
-            tag: type,
-            vibrate: [200, 100, 200]
-        };
-
-        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-            navigator.serviceWorker.ready.then(registration => {
-                registration.showNotification(`Météo : ${city}`, options);
-            }).catch(err => {
-                new Notification(`Météo : ${city}`, options);
+async function sendNotificationToIOS(title, body) {
+    // Méthode 1 : Via le Service Worker (Recommandé par Apple)
+    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            await registration.showNotification(title, {
+                body: body,
+                icon: 'icons/icon-192.png',
+                vibrate: [200, 100, 200],
+                tag: 'meteo-alert'
             });
-        } else {
-            new Notification(`Météo : ${city}`, options);
+            return; // Si ça marche, on s'arrête là
+        } catch (e) {
+            console.log("Echec via Service Worker, tentative classique...");
         }
-    }  
+    }
+
+    // Méthode 2 : Fallback classique (si la méthode SW échoue)
+    new Notification(title, {
+        body: body,
+        icon: 'icons/icon-192.png'
+    });
+}
+
+// Modifie aussi ta fonction sendWeatherNotification pour qu'elle utilise la nouvelle méthode
+function sendWeatherNotification(city, message, type = 'info') {
+    if (Notification.permission === 'granted') {
+        sendNotificationToIOS(`Météo : ${city}`, message);
+    }
 }
 // ===== Recherche et API Météo =====
 async function handleSearch() {
