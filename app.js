@@ -111,58 +111,74 @@ function updateNotifyButton() {
 }
 
 // ===== Notifications (Version corrigée pour iOS) =====
+// ===== GESTION DES NOTIFICATIONS BLINDÉE POUR IOS =====
+
 async function requestNotificationPermission() {
+    // 1. Vérification de l'état actuel
     if (!('Notification' in window)) {
-        alert("Votre téléphone ne gère pas les notifications web.");
+        alert("Ce téléphone ne supporte pas les notifications.");
         return;
     }
 
-    try {
-        // Demande la permission
-        const permission = await Notification.requestPermission();
-        updateNotifyButton(); // Met à jour le texte du bouton
+    // Si c'est déjà accordé dans les réglages mais que le bouton ne le sait pas encore
+    if (Notification.permission === 'granted') {
+        // On tente directement d'envoyer la notif de test
+        sendTestNotification();
+        updateNotifyButton();
+        return;
+    }
 
+    // 2. Si ce n'est pas encore fait, on demande
+    try {
+        const permission = await Notification.requestPermission();
+        
         if (permission === 'granted') {
-            // FORCE une notification de test immédiate
-            // C'est vital pour vérifier que ça marche
-            sendNotificationToIOS("Test réussi !", "Les notifications fonctionnent sur ton iPhone 🎉");
+            updateNotifyButton();
+            sendTestNotification();
         } else {
-            alert("Permissions refusées. Va dans Réglages > Météo PWA pour les activer.");
+            // C'est ici que tu avais le message "Accès refusé"
+            // Si l'utilisateur refuse ou si iOS bug
+            alert("Permission refusée par le système.\n\nAllez dans Réglages > Météo PWA > Notifications pour vérifier.");
         }
     } catch (error) {
-        console.error('Erreur permission:', error);
-        alert("Erreur technique : " + error.message);
+        alert("Erreur lors de la demande : " + error.message);
     }
 }
 
-async function sendNotificationToIOS(title, body) {
-    // Méthode 1 : Via le Service Worker (Recommandé par Apple)
-    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+async function sendTestNotification() {
+    // SUR IPHONE, IL FAUT PASSER PAR LE SERVICE WORKER
+    // new Notification() ne marche souvent pas
+    
+    if ('serviceWorker' in navigator) {
         try {
             const registration = await navigator.serviceWorker.ready;
-            await registration.showNotification(title, {
-                body: body,
+            
+            // On envoie la notif via le SW
+            await registration.showNotification('Météo App', {
+                body: 'Félicitations ! Les notifications fonctionnent 🎉',
                 icon: 'icons/icon-192.png',
                 vibrate: [200, 100, 200],
-                tag: 'meteo-alert'
+                tag: 'test-notif'
             });
-            return; // Si ça marche, on s'arrête là
+            
         } catch (e) {
-            console.log("Echec via Service Worker, tentative classique...");
+            alert("Erreur Service Worker : " + e.message + "\n(Essayez de redémarrer l'app)");
         }
+    } else {
+        alert("Erreur : Le Service Worker n'est pas actif.");
     }
-
-    // Méthode 2 : Fallback classique (si la méthode SW échoue)
-    new Notification(title, {
-        body: body,
-        icon: 'icons/icon-192.png'
-    });
 }
 
-// Modifie aussi ta fonction sendWeatherNotification pour qu'elle utilise la nouvelle méthode
 function sendWeatherNotification(city, message, type = 'info') {
-    if (Notification.permission === 'granted') {
-        sendNotificationToIOS(`Météo : ${city}`, message);
+    // Fonction silencieuse pour l'usage réel (sans alertes)
+    if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification(`Météo : ${city}`, {
+                body: message,
+                icon: 'icons/icon-192.png',
+                tag: type
+            });
+        });
     }
 }
 // ===== Recherche et API Météo =====
