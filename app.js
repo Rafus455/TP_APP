@@ -65,48 +65,47 @@ function isNotificationSupported() {
 }
 
 function updateNotifyButton() {
-    // 1. Détection spécifique pour iOS (iPhone/iPad)
+    // 1. Détection iOS / Standalone
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    // 2. Vérifie si l'app est lancée depuis l'écran d'accueil (Mode App)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // CAS 1 : C'est un iPhone et on est encore dans Safari (pas installé)
+    // 2. Cas iOS non installé
     if (isIOS && !isStandalone) {
         elements.notifyBtn.textContent = '📥 Installer pour activer';
-        elements.notifyBtn.disabled = false; // On active le bouton pour pouvoir cliquer
-        elements.notifyBtn.classList.remove('granted', 'denied');
-        
-        // Au clic, on explique comment faire
         elements.notifyBtn.onclick = () => {
-            alert("⚠️ SUR IPHONE :\n\nLes notifications ne fonctionnent que si l'app est installée.\n\n1. Appuyez sur le bouton Partager (carré avec flèche) en bas de Safari.\n2. Cherchez 'Sur l'écran d'accueil'.\n3. Ajoutez-la et lancez l'app depuis votre écran d'accueil.");
+             alert("Installez l'application sur l'écran d'accueil pour activer les notifications.");
         };
         return;
     }
 
-    // CAS 2 : Notifications vraiment pas supportées (vieux navigateur)
+    // 3. Cas non supporté
     if (!('Notification' in window)) {
         elements.notifyBtn.textContent = '🚫 Non supporté';
         elements.notifyBtn.disabled = true;
         return;
     }
 
-    // CAS 3 : Gestion normale (Android, PC, ou iPhone en mode App)
+    // 4. Gestion des états de permission
     const permission = Notification.permission;
-    
-    // On remet l'écouteur standard (au cas où on l'aurait écrasé dans le Cas 1)
-    elements.notifyBtn.onclick = requestNotificationPermission;
 
     if (permission === 'granted') {
-        elements.notifyBtn.textContent = '✅ Notifications actives';
+        // C'EST ICI QUE CA BLOQUAIT :
+        elements.notifyBtn.textContent = '✅ Test Notification'; // J'ai changé le texte pour que ce soit clair
         elements.notifyBtn.classList.add('granted');
         elements.notifyBtn.classList.remove('denied');
+        
+        // IMPORTANT : On attache la fonction de test au clic
+        elements.notifyBtn.onclick = sendTestNotification; 
+        
     } else if (permission === 'denied') {
         elements.notifyBtn.textContent = '❌ Notifications bloquées';
         elements.notifyBtn.classList.add('denied');
         elements.notifyBtn.classList.remove('granted');
+        elements.notifyBtn.onclick = () => alert("Allez dans les Réglages de l'iPhone pour réactiver les notifications.");
     } else {
         elements.notifyBtn.textContent = '🔔 Activer les notifications';
         elements.notifyBtn.classList.remove('granted', 'denied');
+        elements.notifyBtn.onclick = requestNotificationPermission;
     }
 }
 
@@ -146,26 +145,29 @@ async function requestNotificationPermission() {
 }
 
 async function sendTestNotification() {
-    // SUR IPHONE, IL FAUT PASSER PAR LE SERVICE WORKER
-    // new Notification() ne marche souvent pas
-    
-    if ('serviceWorker' in navigator) {
-        try {
-            const registration = await navigator.serviceWorker.ready;
-            
-            // On envoie la notif via le SW
-            await registration.showNotification('Météo App', {
-                body: 'Félicitations ! Les notifications fonctionnent 🎉',
-                icon: 'icons/icon-192.png',
-                vibrate: [200, 100, 200],
-                tag: 'test-notif'
-            });
-            
-        } catch (e) {
-            alert("Erreur Service Worker : " + e.message + "\n(Essayez de redémarrer l'app)");
-        }
-    } else {
-        alert("Erreur : Le Service Worker n'est pas actif.");
+    // Petit message pour confirmer que le clic est bien pris en compte
+    console.log("Tentative d'envoi...");
+
+    if (!('serviceWorker' in navigator)) {
+        alert("Erreur : Le navigateur ne supporte pas les Service Workers.");
+        return;
+    }
+
+    try {
+        // On attend que le SW soit prêt (c'est souvent là que ça charge sur iPhone)
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Envoi effectif
+        await registration.showNotification('Météo PWA', {
+            body: 'Si tu lis ça, tout fonctionne ! 🌤️',
+            icon: 'icons/icon-192.png',
+            vibrate: [200],
+            tag: 'test-v1' // Tag unique pour éviter les doublons
+        });
+
+    } catch (error) {
+        // Si ça échoue, cette alerte te donnera la raison exacte
+        alert("Échec de la notification : " + error.message);
     }
 }
 
