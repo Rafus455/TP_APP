@@ -1,11 +1,12 @@
 {
     "name": "Météo PWA",
     "short_name": "MétéoPWA",
-    "start_url": "./index.html",
+    "start_url": ".",
     "display": "standalone",
     "background_color": "#4da3ff",
     "theme_color": "#4da3ff",
     "orientation": "portrait",
+    "scope": ".",
     "icons": [
         {
             "src": "icons/icon-192.png",
@@ -13,8 +14,8 @@
             "type": "image/png"
         },
         {
-            "src": "icons/icon-128.png",
-            "sizes": "128x128",
+            "src": "icons/icon-512.png",
+            "sizes": "512x512",
             "type": "image/png"
         }
     ]
