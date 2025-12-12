@@ -39,6 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.searchBtn.addEventListener('click', handleSearch);
     }
 
+     if (elements.notifyBtn) {
+        elements.notifyBtn.addEventListener('click', requestNotificationPermission);
+    }
+
     updateNotifyButton();
     registerServiceWorker();
 });
@@ -118,7 +122,27 @@ async function requestNotificationPermission() {
 }
 
 function sendWeatherNotification(city, message, type = 'info') {
-  
+    if (!('Notification' in window)) return;
+
+    if (Notification.permission === 'granted') {
+        
+        const options = {
+            body: message,
+            icon: 'icons/icon-128.png',
+            tag: type,
+            vibrate: [200, 100, 200]
+        };
+
+        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(`Météo : ${city}`, options);
+            }).catch(err => {
+                new Notification(`Météo : ${city}`, options);
+            });
+        } else {
+            new Notification(`Météo : ${city}`, options);
+        }
+    }  
 }
 // ===== Recherche et API Météo =====
 async function handleSearch() {
