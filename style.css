@@ -12,10 +12,12 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 20px;
+    padding-top: 40px;
     position: relative;
     overflow-x: hidden;
+    overflow-y: auto;
 }
 
 /* Background dynamique */
@@ -58,6 +60,7 @@ body::after {
     width: 100%;
     max-width: 600px;
     animation: fadeIn 0.6s ease-out;
+    margin-bottom: 40px;
 }
 
 @keyframes fadeIn {
@@ -218,6 +221,7 @@ button:active {
     text-align: center;
     font-weight: 500;
     box-shadow: 0 4px 15px rgba(238, 90, 111, 0.4);
+    margin-bottom: 20px;
 }
 
 /* Section météo */
@@ -346,20 +350,41 @@ button:active {
     border-radius: 10px;
 }
 
+/* Styles pour les cartes horaires (si app.js les génère) */
+.hourly-card {
+    min-width: 100px;
+    padding: 15px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 15px;
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.hourly-card:hover {
+    transform: translateY(-3px);
+}
+
 /* Bouton notifications */
-.notify-button {
+.notify-button,
+#notify-btn {
     width: 100%;
     background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
     font-size: 0.95rem;
     margin-top: 10px;
 }
 
-.notify-button:hover {
+.notify-button:hover,
+#notify-btn:hover {
     box-shadow: 0 6px 20px rgba(45, 55, 72, 0.4);
 }
 
 /* Responsive */
 @media (max-width: 640px) {
+    body {
+        justify-content: center;
+        padding-top: 20px;
+    }
+
     .logo-container {
         padding: 15px 25px;
     }
@@ -395,5 +420,16 @@ button:active {
 
     #weather-section {
         padding: 25px;
+    }
+}
+
+/* Desktop - écrans larges */
+@media (min-width: 1024px) {
+    .container {
+        max-width: 700px;
+    }
+    
+    #weather-section {
+        padding: 45px;
     }
 }
