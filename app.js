@@ -233,18 +233,18 @@ async function fetchWeather(lat, lon, cityName) {
             `&timezone=auto&forecast_days=1`
         );
 
-        if (!weatherResponse.ok) throw new Error('Erreur lors de la récupération des données météo');
+        if (!weatherResponse.ok) throw new Error('Erreur météo');
 
         const weatherData = await weatherResponse.json();
         
-        // Sauvegarder la ville courante
         currentCity = { name: cityName, lat, lon };
         
-        // Afficher les résultats
         displayWeather(weatherData, cityName);
         
-        // Vérifier les alertes pour les 4 prochaines heures
+        // --- C'EST ICI QU'ON APPELLE LA VÉRIFICATION ---
+        console.log("Analyse des alertes...");
         checkWeatherAlerts(weatherData, cityName);
+        // -----------------------------------------------
         
         hideLoading();
         
@@ -397,4 +397,45 @@ function showError(message) {
 
 function hideError() {
     elements.errorMessage.classList.add('hidden');
+}
+
+function checkWeatherAlerts(data, cityName) {
+    // 1. On récupère les données horaires
+    const hourly = data.hourly;
+    
+    // 2. On récupère l'heure actuelle (0-23)
+    const currentHour = new Date().getHours();
+    
+    // Variables pour éviter les doublons (on prévient une seule fois par recherche)
+    let rainAlertSent = false;
+    let tempAlertSent = false;
+
+    // 3. Boucle sur les 4 prochaines heures (i=1 à i=4)
+    for (let i = 1; i <= 4; i++) {
+        const targetIndex = currentHour + i; // L'index dans le tableau correspond souvent à l'heure
+
+        // Sécurité : on vérifie qu'on ne sort pas du tableau
+        if (targetIndex >= hourly.time.length) break;
+
+        const weatherCode = hourly.weather_code[targetIndex];
+        const temperature = hourly.temperature_2m[targetIndex];
+
+        // --- TEST 1 : PLUIE ---
+        if (!rainAlertSent && CONFIG.RAIN_CODES.includes(weatherCode)) {
+            sendWeatherNotification(
+                cityName, 
+                `☔ Attention : Pluie prévue dans ${i} heure(s) !`
+            );
+            rainAlertSent = true; // On arrête de chercher pour la pluie
+        }
+
+        // --- TEST 2 : TEMPÉRATURE > 10°C ---
+        if (!tempAlertSent && temperature > CONFIG.TEMP_THRESHOLD) {
+            sendWeatherNotification(
+                cityName, 
+                `🌡️ Il va faire doux : ${Math.round(temperature)}°C prévus dans ${i} heure(s).`
+            );
+            tempAlertSent = true; // On arrête de chercher pour la température
+        }
+    }
 }
